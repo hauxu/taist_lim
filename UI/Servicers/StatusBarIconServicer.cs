@@ -189,6 +189,14 @@ namespace UI.Servicers
             _uIServicer.InitWindow(_mainWindow);
         }
 
+        public void ShowBalloonTip(string title, string text, int timeout = 5000)
+        {
+            if (_statusBarIcon != null)
+            {
+                _statusBarIcon.ShowBalloonTip(timeout, title, text, System.Windows.Forms.ToolTipIcon.Info);
+            }
+        }
+
         private void _mainWindow_Loaded(object sender, RoutedEventArgs e)
         {
             var window = sender as MainWindow;

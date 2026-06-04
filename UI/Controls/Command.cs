@@ -1,39 +1,54 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System;
 using System.Windows.Input;
-
 namespace UI.Controls
 {
     public class Command : ICommand
     {
-        private Action<object> _action;
-
-        public Command(Action<object> action)
+        private readonly Action<object> _action;
+        private readonly Predicate<object> _canExecute;
+        public Command(Action<object> action) : this(action, null) { }
+        public Command(Action<object> action, Predicate<object> canExecute)
         {
-            _action = action;
+            _action = action ?? throw new ArgumentNullException(nameof(action));
+            _canExecute = canExecute;
         }
-
-
-        #region ICommand Members  
         public bool CanExecute(object parameter)
         {
-            return true;
+            return _canExecute == null || _canExecute(parameter);
         }
-        public event EventHandler CanExecuteChanged;
+        public event EventHandler CanExecuteChanged
+        {
+            add { CommandManager.RequerySuggested += value; }
+            remove { CommandManager.RequerySuggested -= value; }
+        }
         public void Execute(object parameter)
         {
             _action(parameter);
-            OnExecuted();
         }
-        public delegate void ExecutedHandler(object parameter);
-        public event ExecutedHandler Executed;
-        public void OnExecuted()
+    }
+    public class Command<T> : ICommand
+    {
+        private readonly Action<T> _action;
+        private readonly Predicate<T> _canExecute;
+        public Command(Action<T> action) : this(action, null) { }
+        public Command(Action<T> action, Predicate<T> canExecute)
         {
-            Executed?.Invoke(null);
+            _action = action ?? throw new ArgumentNullException(nameof(action));
+            _canExecute = canExecute;
         }
-        #endregion
+        public bool CanExecute(object parameter)
+        {
+            return _canExecute == null || (parameter is T t && _canExecute(t));
+        }
+        public event EventHandler CanExecuteChanged
+        {
+            add { CommandManager.RequerySuggested += value; }
+            remove { CommandManager.RequerySuggested -= value; }
+        }
+        public void Execute(object parameter)
+        {
+            if (parameter is T t)
+                _action(t);
+        }
     }
 }

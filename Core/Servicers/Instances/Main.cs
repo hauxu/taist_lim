@@ -1,12 +1,15 @@
-﻿using Core.Enums;
+using Core.Enums;
 using Core.Event;
 using Core.Librarys;
 using Core.Librarys.Browser;
 using Core.Librarys.Browser.Favicon;
 using Core.Librarys.SQLite;
 using Core.Models;
+using Core.Models.AppObserver;
 using Core.Models.Config;
 using Core.Models.Config.Link;
+using Core.Models.DurationLimit;
+using Core.Models.WebPage;
 using Core.Servicers.Interfaces;
 using System;
 using System.Collections.Generic;
@@ -22,7 +25,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Timers;
 using System.Windows.Threading;
-
 namespace Core.Servicers.Instances
 {
     public class Main : IMain
@@ -37,6 +39,11 @@ namespace Core.Servicers.Instances
         private readonly IAppTimerServicer _appTimer;
         private readonly IWebServer _webServer;
         private readonly IWebData _webData;
+        //  新增：时长限制服务
+        private readonly IDurationLimitChecker _durationLimitChecker;
+        private readonly ILockActionExecutor _lockActionExecutor;
+        private readonly IDurationLimitRuleRepository _durationLimitRuleRepository;
+        private readonly IProcessBlocker _processBlocker;
         //  忽略的进程
         private readonly string[] DefaultIgnoreProcess = new string[] {
             "Tai",
@@ -51,25 +58,21 @@ namespace Core.Servicers.Instances
             "dwm",
             "SystemSettingsAdminFlows"
         };
-
         /// <summary>
         /// 睡眠状态
         /// </summary>
         private SleepStatus sleepStatus;
-
         /// <summary>
         /// app config
         /// </summary>
         private ConfigModel config;
-
         public event EventHandler OnUpdateTime;
         public event EventHandler OnStarted;
-
+        public event EventHandler<DurationLimitExceededEventArgs> OnLimitExceeded;
         /// <summary>
         /// 忽略进程缓存列表
         /// </summary>
         private List<string> IgnoreProcessCacheList;
-
         /// <summary>
         /// 配置正则忽略进程列表
         /// </summary>
@@ -83,6 +86,8 @@ namespace Core.Servicers.Instances
         //  已经更新过的应用列表
         private List<string> updatedAppList = new List<string>();
         private List<string> _configProcessNameWhiteList, _configProcessRegexWhiteList;
+        private Site _currentActiveWebsite;
+        private string _currentBrowserProcess;
         public Main(
             IAppObserver appObserver,
             IData data,
@@ -93,7 +98,11 @@ namespace Core.Servicers.Instances
             IWebFilter webFilter_,
             IAppTimerServicer appTimer_,
             IWebServer webServer_,
-            IWebData webData_)
+            IWebData webData_,
+            IDurationLimitChecker durationLimitChecker,
+            ILockActionExecutor lockActionExecutor,
+            IDurationLimitRuleRepository durationLimitRuleRepository,
+            IProcessBlocker processBlocker)
         {
             this.appObserver = appObserver;
             this.data = data;
@@ -105,79 +114,74 @@ namespace Core.Servicers.Instances
             _appTimer = appTimer_;
             _webServer = webServer_;
             _webData = webData_;
-
+            _durationLimitChecker = durationLimitChecker;
+            _lockActionExecutor = lockActionExecutor;
+            _durationLimitRuleRepository = durationLimitRuleRepository;
+            _processBlocker = processBlocker;
             IgnoreProcessCacheList = new List<string>();
             ConfigIgnoreProcessRegxList = new List<string>();
             ConfigIgnoreProcessList = new List<string>();
             _configProcessNameWhiteList = new List<string>();
             _configProcessRegexWhiteList = new List<string>();
-
             sleepdiscover.SleepStatusChanged += Sleepdiscover_SleepStatusChanged;
             appConfig.ConfigChanged += AppConfig_ConfigChanged;
             _appTimer.OnAppDurationUpdated += _appTimer_OnAppDurationUpdated;
             WebSocketEvent.OnWebLog += WebSocketEvent_OnWebLog;
+            _durationLimitChecker.LimitExceeded += _durationLimitChecker_LimitExceeded;
         }
-
+        private void _durationLimitChecker_LimitExceeded(object sender, DurationLimitExceededEventArgs e)
+        {
+            Logger.Info($"检测到时长超限: {e.Rule.TargetName}, 当前: {e.CurrentUsage.TotalMinutes:N0}分钟, 限制: {e.MaxAllowed}分钟");
+            OnLimitExceeded?.Invoke(this, e);
+        }
         private void AppConfig_ConfigChanged(ConfigModel oldConfig, ConfigModel newConfig)
         {
             if (oldConfig != newConfig)
             {
                 //  处理开机自启
                 SystemCommon.SetStartup(newConfig.General.IsStartatboot);
-
                 //  更新忽略规则
                 UpdateConfigIgnoreProcess();
-
                 //  更新白名单
                 UpdateConfigProcessWhiteList();
-
                 //  处理web记录功能启停
                 HandleWebServiceConfig();
             }
         }
-
         public async void Run()
         {
             await Task.Run(() =>
              {
                  CreateDirectory();
-
                  //  数据库自检
                  using (var db = new TaiDbContext())
                  {
                      db.SelfCheck();
                  }
-
+                 //  初始化时长限制表
+                 _durationLimitRuleRepository.InitializeTable();
                  //  加载app信息
                  appData.Load();
-
                  // 加载分类信息
                  categories.Load();
-
                  AppState.IsLoading = false;
              });
-
-
-
             //  加载应用配置（确保配置文件最先加载
             appConfig.Load();
             config = appConfig.GetConfig();
             UpdateConfigIgnoreProcess();
             UpdateConfigProcessWhiteList();
-
             //  初始化过滤器
             _webFilter.Init();
-
             //  启动主服务
             Start();
-
             OnStarted?.Invoke(this, EventArgs.Empty);
         }
         public void Start()
         {
-            //  appTimer必须比Observer先启动*
             _appTimer.Start();
             appObserver.Start();
+            _processBlocker.Start();
             if (config.General.IsWebEnabled)
             {
                 _webServer.Start();
@@ -198,7 +202,6 @@ namespace Core.Servicers.Instances
         {
             appObserver?.Stop();
         }
-
         /// <summary>
         /// 创建程序目录
         /// </summary>
@@ -207,7 +210,6 @@ namespace Core.Servicers.Instances
             string dir = Path.Combine(FileHelper.GetRootDirectory(), "Data");
             Directory.CreateDirectory(dir);
         }
-
         private void UpdateConfigIgnoreProcess()
         {
             if (config == null)
@@ -217,11 +219,9 @@ namespace Core.Servicers.Instances
             ConfigIgnoreProcessList.Clear();
             ConfigIgnoreProcessRegxList.Clear();
             IgnoreProcessCacheList.Clear();
-
             ConfigIgnoreProcessList = config.Behavior.IgnoreProcessList.Where(m => !IsRegex(m)).ToList();
             ConfigIgnoreProcessRegxList = config.Behavior.IgnoreProcessList.Where(m => IsRegex(m)).ToList();
         }
-
         private void UpdateConfigProcessWhiteList()
         {
             if (config == null)
@@ -230,31 +230,25 @@ namespace Core.Servicers.Instances
             }
             _configProcessNameWhiteList.Clear();
             _configProcessRegexWhiteList.Clear();
-
             _configProcessNameWhiteList = config.Behavior.ProcessWhiteList.Where(m => !IsRegex(m)).ToList();
             _configProcessRegexWhiteList = config.Behavior.ProcessWhiteList.Where(m => IsRegex(m)).ToList();
         }
-
         private bool IsRegex(string str)
         {
-            return Regex.IsMatch(str, @"[\.|\*|\?|\{|\\|\[|\^|\|]");
+            return Regex.IsMatch(str, @"[\.|\*|\?|\{|\||\\|\[|\^|\]]");
         }
-
         private void Sleepdiscover_SleepStatusChanged(Enums.SleepStatus sleepStatus)
         {
             this.sleepStatus = sleepStatus;
-
             Logger.Info($"[{sleepStatus}]");
             if (sleepStatus == SleepStatus.Sleep)
             {
                 //  进入睡眠状态
                 Debug.WriteLine("进入睡眠状态");
-
                 //  通知sokcet客户端
                 _webServer?.SendMsg("sleep");
                 //  停止服务
                 Stop();
-
                 //  更新时间
                 UpdateAppDuration();
             }
@@ -262,14 +256,10 @@ namespace Core.Servicers.Instances
             {
                 //  从睡眠状态唤醒
                 Debug.WriteLine("从睡眠状态唤醒");
-
                 _webServer?.SendMsg("wake");
-
                 Start();
             }
         }
-
-
         /// <summary>
         /// 检查应用是否需要记录数据
         /// </summary>
@@ -282,13 +272,11 @@ namespace Core.Servicers.Instances
             {
                 return false;
             }
-
             //  从名称判断
             if (ConfigIgnoreProcessList.Contains(processName))
             {
                 return false;
             }
-
             //  正则表达式
             foreach (string reg in ConfigIgnoreProcessRegxList)
             {
@@ -298,7 +286,6 @@ namespace Core.Servicers.Instances
                     return false;
                 }
             }
-
             //  应用白名单过滤
             if (config.Behavior.IsWhiteList && config.Behavior.ProcessWhiteList.Count > 0)
             {
@@ -324,15 +311,12 @@ namespace Core.Servicers.Instances
                 Debug.WriteLine("白名单过滤结果：" + processName + " -> " + isWhite);
                 if (!isWhite) return false;
             }
-
             AppModel app = appData.GetApp(processName);
             if (app == null)
             {
                 //  记录应用信息
-
                 //  提取icon
                 string iconFile = Iconer.ExtractFromFile(file, processName, description);
-
                 appData.AddApp(new AppModel()
                 {
                     Name = processName,
@@ -349,12 +333,10 @@ namespace Core.Servicers.Instances
                     updadteAppDateTime_ = DateTime.Now.Date;
                     updatedAppList.Clear();
                 }
-
                 if (!updatedAppList.Contains(processName))
                 {
                     //  更新应用信息
                     app.IconFile = Iconer.ExtractFromFile(file, processName, description);
-
                     if (app.Description != description)
                     {
                         app.Description = description;
@@ -367,10 +349,8 @@ namespace Core.Servicers.Instances
                     updatedAppList.Add(processName);
                 }
             }
-
             return true;
         }
-
         private void HandleLinks(string processName, int seconds, DateTime time)
         {
             Task.Run(() =>
@@ -394,13 +374,11 @@ namespace Core.Servicers.Instances
                                         //  同步更新
                                         data.UpdateAppDuration(linkProcess, seconds, time);
                                     }
-
                                 }
                             }
                             break;
                         }
                     }
-
                 }
                 catch (Exception ex)
                 {
@@ -408,7 +386,6 @@ namespace Core.Servicers.Instances
                 }
             });
         }
-
         #region 判断进程是否在运行中
         /// <summary>
         /// 判断进程是否在运行中
@@ -421,7 +398,6 @@ namespace Core.Servicers.Instances
             return process != null && process.Length > 0;
         }
         #endregion
-
         #region 处理网站数据记录配置项开关
         /// <summary>
         /// 处理网站数据记录配置项开关
@@ -432,7 +408,6 @@ namespace Core.Servicers.Instances
             {
                 return;
             }
-
             if (config.General.IsWebEnabled)
             {
                 _webServer.Start();
@@ -443,12 +418,49 @@ namespace Core.Servicers.Instances
             }
         }
         #endregion
-
         private void _appTimer_OnAppDurationUpdated(object sender, Event.AppDurationUpdatedEventArgs e)
         {
             UpdateAppDuration(e);
+            if (e?.App != null)
+            {
+                bool isBrowser = IsBrowserApp(e.App.Process);
+                if (isBrowser)
+                {
+                    _currentBrowserProcess = e.App.Process;
+                }
+                else if (!isBrowser)
+                {
+                    _currentActiveWebsite = null;
+                }
+                // 在后台线程检查时长限制，避免阻塞UI线程
+                var activeInfo = AppActiveInfo.FromAppInfo(e.App, isBrowser, isBrowser ? _currentActiveWebsite : null);
+                Task.Run(() =>
+                {
+                    try
+                    {
+                        _durationLimitChecker.CheckIfExceeded(activeInfo);
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error("CheckIfExceeded 后台检查异常: " + ex.Message);
+                    }
+                });
+            }
         }
-
+        /// <summary>
+        /// 基础浏览器进程名判断
+        /// </summary>
+        private bool IsBrowserApp(string processName)
+        {
+            if (string.IsNullOrEmpty(processName)) return false;
+            string[] browserNames = { "chrome", "firefox", "msedge", "iexplore", "opera", "brave", "sogouexplorer", "360se", "qqbrowser", "browser" };
+            foreach (var name in browserNames)
+            {
+                if (processName.IndexOf(name, StringComparison.OrdinalIgnoreCase) >= 0)
+                    return true;
+            }
+            return false;
+        }
         private void UpdateAppDuration()
         {
             UpdateAppDuration(_appTimer.GetAppDuration());
@@ -456,13 +468,11 @@ namespace Core.Servicers.Instances
         private void UpdateAppDuration(AppDurationUpdatedEventArgs e)
         {
             if (e == null) return;
-
             try
             {
                 var app = e.App;
                 int duration = e.Duration;
                 DateTime startTime = e.ActiveTime;
-
                 bool isCheck = IsCheckApp(app.Process, app.Description, app.ExecutablePath);
                 if (isCheck)
                 {
@@ -480,7 +490,6 @@ namespace Core.Servicers.Instances
                 Logger.Error(ex.ToString());
             }
         }
-
         #region 浏览器记录
         private void WebSocketEvent_OnWebLog(Models.WebPage.NotifyWeb args)
         {
@@ -491,17 +500,13 @@ namespace Core.Servicers.Instances
                     Debug.WriteLine($"URL已被过滤，{args.Url}");
                     return;
                 }
-
-                //  记录数据
                 var site = new Models.WebPage.Site()
                 {
                     Url = args.Url,
                     Title = args.Title
                 };
-
+                _currentActiveWebsite = site;
                 _webData.AddUrlBrowseTime(site, args.Duration, args.ActiveDateTime);
-
-                //  处理图标
                 Task.Run(async () =>
                 {
                     string saveName = UrlHelper.GetName(args.Url) + DateTime.Now.ToString("yyyyMM") + ".ico";
@@ -515,7 +520,6 @@ namespace Core.Servicers.Instances
             }
         }
         #endregion
-
         #region 自动分类
         /// <summary>
         /// 自动分类
@@ -546,7 +550,6 @@ namespace Core.Servicers.Instances
                                 break;
                             }
                         }
-
                     }
                     if (mathCategory != null)
                     {

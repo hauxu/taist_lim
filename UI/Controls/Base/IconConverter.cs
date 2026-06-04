@@ -34,6 +34,8 @@ namespace UI.Controls.Base
 {IconTypes.Admin,"\xe7ef"},
 {IconTypes.Airplane,"\xe709"},
 {IconTypes.AirplaneSolid,"\xeb4c"},
+{IconTypes.AlarmClock,"\xec02"},
+{IconTypes.AlarmClockSolid,"\xec03"},
 {IconTypes.AlignCenter,"\xe8e3"},
 {IconTypes.AlignLeft,"\xe8e4"},
 {IconTypes.AlignRight,"\xe8e2"},

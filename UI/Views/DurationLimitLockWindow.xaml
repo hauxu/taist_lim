@@ -1,0 +1,59 @@
+<Window x:Class="UI.Views.DurationLimitLockWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="使用时长限制提醒"
+        WindowStyle="None"
+        WindowState="Maximized"
+        WindowStartupLocation="CenterScreen"
+        Topmost="True"
+        ShowInTaskbar="False"
+        ResizeMode="NoResize"
+        AllowsTransparency="True"
+        Background="Transparent">
+    <Grid>
+        <Border Background="#E0000000">
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="40">
+                <Border Background="{DynamicResource StandardBackgroundBrush}" 
+                        CornerRadius="12" 
+                        Padding="40,35" 
+                        MaxWidth="460"
+                        HorizontalAlignment="Center">
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="40" Direction="0" ShadowDepth="0" Opacity=".3" Color="Black"/>
+                    </Border.Effect>
+                    <StackPanel HorizontalAlignment="Center">
+                        <!-- 图标区域 -->
+                        <Border Width="64" Height="64" CornerRadius="16" 
+                                Background="{DynamicResource ThemeBrush}" Opacity="0.15"
+                                HorizontalAlignment="Center" Margin="0,0,0,20">
+                            <TextBlock Text="&#xE783;" FontSize="28" 
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource ThemeBrush}"/>
+                        </Border>
+                        <!-- 主要消息 -->
+                        <TextBlock x:Name="MessageText" 
+                                   Text="使用时长已超限" 
+                                   FontSize="18" FontWeight="Bold"
+                                   Foreground="{DynamicResource StandardTextBrush}" 
+                                   TextWrapping="Wrap" TextAlignment="Center" Margin="0,0,0,8"/>
+                        <!-- 描述 -->
+                        <TextBlock Text="为了保护您的时间和效率，当前应用已达到每日使用限制" 
+                                   FontSize="13" 
+                                   Foreground="{DynamicResource SubTextBrush}" 
+                                   TextWrapping="Wrap" TextAlignment="Center" Margin="0,0,0,25"/>
+                        <!-- 解锁按钮 -->
+                        <Border Background="{DynamicResource ThemeBrush}" 
+                                CornerRadius="6" 
+                                Padding="25,10" 
+                                Cursor="Hand" 
+                                HorizontalAlignment="Center"
+                                MouseLeftButtonUp="UnlockButton_Click">
+                            <TextBlock Text="暂时解锁 5 分钟" FontSize="14" 
+                                       Foreground="White" HorizontalAlignment="Center"/>
+                        </Border>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

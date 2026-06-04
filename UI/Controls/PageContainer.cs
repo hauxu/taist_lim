@@ -281,15 +281,20 @@ namespace UI.Controls
 
         private PageModel GetPage()
         {
-            Page page = null;
             if (PageCache.ContainsKey(Uri))
             {
                 return PageCache[Uri];
             }
             Type pageType = Type.GetType(ProjectName + ".Views." + Uri);
+            Page page = null;
             if (pageType != null && ServiceProvider != null)
             {
                 page = ServiceProvider.GetService(pageType) as Page;
+            }
+            if (page == null)
+            {
+                Debug.WriteLine($"找不到 Page 类型：{ProjectName}.Views.{Uri} 或 ServiceProvider 未提供");
+                return null;
             }
             var newPage = new PageModel()
             {
@@ -307,10 +312,13 @@ namespace UI.Controls
                 foreach (var key in PageCache.Keys)
                 {
                     var page = PageCache[key];
-                    var vm = page.Instance.DataContext as ModelBase;
-                    vm?.Dispose();
-                    page.Instance.Content = null;
-                    page.Instance.DataContext = null;
+                    if (page.Instance != null)
+                    {
+                        var vm = page.Instance.DataContext as ModelBase;
+                        vm?.Dispose();
+                        page.Instance.Content = null;
+                        page.Instance.DataContext = null;
+                    }
                 }
                 PageCache.Clear();
             }

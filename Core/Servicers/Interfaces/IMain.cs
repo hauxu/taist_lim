@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Core.Models.DurationLimit;
 
 namespace Core.Servicers.Interfaces
 {
@@ -36,5 +37,9 @@ namespace Core.Servicers.Interfaces
         /// 初始化完成时发生
         /// </summary>
         event EventHandler OnStarted;
+        /// <summary>
+        /// 时长超限时发生
+        /// </summary>
+        event EventHandler<DurationLimitExceededEventArgs> OnLimitExceeded;
     }
 }

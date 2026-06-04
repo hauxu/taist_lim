@@ -1,9 +1,11 @@
 ﻿using Core.Servicers.Interfaces;
+using Core.Models.DurationLimit;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows;
 using UI.Controls;
 using UI.Controls.Base;
 using UI.Controls.Navigation.Models;
@@ -17,10 +19,11 @@ namespace UI.ViewModels
     {
         private readonly IServiceProvider serviceProvider;
         private readonly IAppConfig appConfig;
+        private readonly IMain main;
         public Command OnSelectedCommand { get; set; }
         public Command GotoPageCommand { get; set; }
 
-        private string[] pages = { nameof(IndexPage), nameof(ChartPage), nameof(DataPage), nameof(CategoryPage) };
+        private string[] pages = { nameof(IndexPage), nameof(ChartPage), nameof(DataPage), nameof(CategoryPage), "DurationLimitSettingsPage" };
         public MainViewModel(
             IServiceProvider serviceProvider,
             IAppConfig appConfig,
@@ -29,12 +32,12 @@ namespace UI.ViewModels
         {
             this.serviceProvider = serviceProvider;
             this.appConfig = appConfig;
+            this.main = main;
 
             ServiceProvider = serviceProvider;
 
             OnSelectedCommand = new Command(new Action<object>(OnSelectedCommandHandle));
             GotoPageCommand = new Command(new Action<object>(OnGotoPageCommand));
-
 
             Items = new System.Collections.ObjectModel.ObservableCollection<Controls.Navigation.Models.NavigationItemModel>();
 
@@ -42,8 +45,6 @@ namespace UI.ViewModels
 
             InitNavigation();
         }
-
-
 
         private void MainViewModel_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
@@ -59,6 +60,8 @@ namespace UI.ViewModels
         public void LoadDefaultPage()
         {
             int startPageIndex = appConfig.GetConfig().General.StartPage;
+            if (startPageIndex >= pages.Length)
+                startPageIndex = 0;
             NavSelectedItem = Items[startPageIndex];
             Uri = NavSelectedItem.Uri;
         }
@@ -117,6 +120,15 @@ namespace UI.ViewModels
                 Title = "分类",
                 ID = 3,
                 Uri = nameof(CategoryPage),
+
+            });
+            Items.Add(new Controls.Navigation.Models.NavigationItemModel()
+            {
+                UnSelectedIcon = Controls.Base.IconTypes.AlarmClock,
+                SelectedIcon = IconTypes.AlarmClockSolid,
+                Title = "时长限制",
+                ID = 4,
+                Uri = "DurationLimitSettingsPage",
 
             });
         }

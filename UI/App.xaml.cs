@@ -29,6 +29,7 @@ namespace UI
     public partial class App : Application
     {
         private readonly ServiceProvider serviceProvider;
+        public ServiceProvider Container => serviceProvider;
         private System.Threading.Mutex mutex;
         //  保活窗口
         private HideWindow keepaliveWindow;
@@ -107,6 +108,12 @@ namespace UI
             services.AddSingleton<ICategorys, Categorys>();
             services.AddSingleton<IWebFilter, WebFilter>();
 
+            //  新增：时长限制服务
+            services.AddSingleton<IDurationLimitRuleRepository, DurationLimitRuleRepository>();
+            services.AddSingleton<IDurationLimitChecker, DurationLimitChecker>();
+            services.AddSingleton<ILockActionExecutor, LockActionExecutor>();
+            services.AddSingleton<IProcessBlocker, ProcessBlocker>();
+
             //  UI服务
             services.AddSingleton<IUIServicer, UIServicer>();
             services.AddSingleton<IAppContextMenuServicer, AppContextMenuServicer>();
@@ -151,6 +158,9 @@ namespace UI
             //  网站详情
             services.AddTransient<WebSiteDetailPage>();
             services.AddTransient<WebSiteDetailPageVM>();
+            //  时长限制设置
+            services.AddTransient<DurationLimitSettingsPage>();
+            services.AddTransient<DurationLimitSettingsViewModel>();
         }
 
         private void OnStartup(object sender, StartupEventArgs e)

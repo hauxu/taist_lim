@@ -171,6 +171,7 @@
     <Compile Include="Librarys\Time.cs" />
     <Compile Include="Librarys\Win32API.cs" />
     <Compile Include="Models\AppModel.cs" />
+    <Compile Include="Models\AppObserver\AppActiveInfo.cs" />
     <Compile Include="Models\AppObserver\AppInfo.cs" />
     <Compile Include="Models\AppObserver\AppObserverEventArgs.cs" />
     <Compile Include="Models\AppObserver\WindowInfo.cs" />
@@ -188,10 +189,15 @@
     <Compile Include="Models\Db\WebUrlModel.cs" />
     <Compile Include="Models\HoursLogModel.cs" />
     <Compile Include="Models\DailyLogModel.cs" />
+    <Compile Include="Models\DurationLimit\DurationLimitRule.cs" />
     <Compile Include="Models\WebPage\NotifyWeb.cs" />
     <Compile Include="Models\WebPage\Site.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Servicers\Instances\AppConfig.cs" />
+    <Compile Include="Servicers\Instances\DurationLimitRuleRepository.cs" />
+    <Compile Include="Servicers\Instances\DurationLimitChecker.cs" />
+    <Compile Include="Servicers\Instances\LockActionExecutor.cs" />
+    <Compile Include="Servicers\Instances\ProcessBlocker.cs" />
     <Compile Include="Servicers\Instances\AppData.cs" />
     <Compile Include="Servicers\Instances\AppManager.cs" />
     <Compile Include="Servicers\Instances\AppTimerServicer.cs" />
@@ -223,6 +229,10 @@
     <Compile Include="Servicers\Interfaces\IWebFilter.cs" />
     <Compile Include="Servicers\Interfaces\IWebServer.cs" />
     <Compile Include="Servicers\Interfaces\IWindowManager.cs" />
+    <Compile Include="Servicers\Interfaces\IDurationLimitRuleRepository.cs" />
+    <Compile Include="Servicers\Interfaces\IDurationLimitChecker.cs" />
+    <Compile Include="Servicers\Interfaces\ILockActionExecutor.cs" />
+    <Compile Include="Servicers\Interfaces\IProcessBlocker.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />

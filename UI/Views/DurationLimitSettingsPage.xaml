@@ -1,0 +1,86 @@
+<Page x:Class="UI.Views.DurationLimitSettingsPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+      xmlns:Btn="clr-namespace:UI.Controls.Button"
+      xmlns:Toggle="clr-namespace:UI.Controls.Toggle"
+      xmlns:Tabbar="clr-namespace:UI.Controls.Tabbar"
+      mc:Ignorable="d"
+      d:DesignHeight="600" d:DesignWidth="800"
+      Foreground="#333333">
+    <StackPanel Margin="20">
+        <TextBlock Text="时长限制" FontSize="18" Margin="0,5,0,5" Foreground="#333333"/>
+        <TextBlock Text="设置应用、浏览器或网站的每日使用时长上限，超限后可自动锁屏或关闭进程"
+                   FontSize="12" Margin="0,0,0,15" Foreground="#666666" TextWrapping="Wrap"/>
+
+        <Tabbar:Tabbar Width="280" HorizontalAlignment="Left"
+                       Data="{Binding TabbarData}"
+                       SelectedIndex="{Binding TabbarSelectedIndex,Mode=TwoWay}"/>
+
+        <StackPanel Orientation="Horizontal" Margin="0,15,0,10">
+            <Btn:Button Icon="Add" Content="添加规则" Command="{Binding AddRuleCommand}"
+                        Background="#4A90D9" Foreground="White"/>
+        </StackPanel>
+
+        <ItemsControl ItemsSource="{Binding FilteredRules}">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Border Background="#F8F9FA" BorderBrush="#E0E0E0"
+                            BorderThickness="1" CornerRadius="6"
+                            Margin="0,0,0,8" Padding="15,12">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{Binding TargetName}" FontWeight="Bold" FontSize="14"
+                                               Foreground="#333333"/>
+                                    <Border Background="#4A90D9" Opacity="0.12"
+                                            CornerRadius="4" Padding="8,2" Margin="8,0,0,0">
+                                        <TextBlock Text="{Binding RuleTypeText}" FontSize="11"
+                                                   Foreground="#4A90D9"/>
+                                    </Border>
+                                </StackPanel>
+                                <TextBlock FontSize="12" Margin="0,4,0,0" Foreground="#888888">
+                                    <TextBlock.Text>
+                                        <MultiBinding StringFormat="每日限制 {0} 分钟 · {1}">
+                                            <Binding Path="MaxDailyMinutes"/>
+                                            <Binding Path="LockActionText"/>
+                                        </MultiBinding>
+                                    </TextBlock.Text>
+                                </TextBlock>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Border Background="#4A90D9" CornerRadius="4"
+                                        Padding="8,4" Margin="0,0,8,0" Cursor="Hand"
+                                        ToolTip="编辑规则"
+                                        MouseLeftButtonUp="EditRule_Click">
+                                    <TextBlock Text="编辑" FontSize="12" Foreground="White"/>
+                                </Border>
+                                <Border Background="#f51837" CornerRadius="4"
+                                        Padding="8,4" Margin="0,0,12,0" Cursor="Hand"
+                                        ToolTip="删除规则"
+                                        MouseLeftButtonUp="DeleteRule_Click">
+                                    <TextBlock Text="删除" FontSize="12" Foreground="White"/>
+                                </Border>
+                                <Toggle:Toggle IsChecked="{Binding IsEnabled, Mode=TwoWay}"
+                                               OnText="" OffText=""
+                                               ToggleChanged="Toggle_ToggleChanged"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <TextBlock Text="暂无规则，点击上方按钮添加"
+                   Foreground="#999999" FontSize="13"
+                   HorizontalAlignment="Center" Margin="0,30,0,0"
+                   Visibility="{Binding HasNoRules}"/>
+    </StackPanel>
+</Page>

@@ -1413,5 +1413,7 @@ namespace UI.Controls.Base
         ZoomIn,
         ZoomMode,
         ZoomOut,
+        AlarmClock,
+        AlarmClockSolid,
     }
 }
