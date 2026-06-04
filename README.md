@@ -1,9 +1,14 @@
-# Tai
-👻 在 Windows 上统计 `软件` 使用时长和 `网站` 浏览时长
+# taist_lim — 带时长限制的 Tai
 
-<img src="index.jpg" width=600 />
+在 Windows 上统计软件使用时长和网站浏览时长，**新增时长限制功能**。
 
-广告位出售，联系方式：bmFjYXQ0YjEx （ base64 添加请备注来意
+> 基于 [Planshit/Tai](https://github.com/Planshit/Tai) 二次开发
+
+## 新增功能：时长限制
+
+- 对软件/网站/浏览器设置每日使用时长上限
+- 超限后执行：锁屏提醒、关闭进程、今日禁止启动
+- 分类筛选（全部/软件/网站/浏览器），Toggle 开关管理规则
 
 ## 开始使用
 
